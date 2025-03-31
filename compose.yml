@@ -1,0 +1,58 @@
+services:
+  backend:
+    image: golang:latest
+    working_dir: /cassist
+    volumes:
+      - ./backend:/cassist
+    env_file: .env
+    expose:
+      - "42069"
+    command: air
+    entrypoint: >
+      sh -c "go install github.com/air-verse/air@latest &&
+             air"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - cassist-front
+      - cassist-back
+
+  database:
+    image: postgres
+    restart: always
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data/
+    env_file: .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+    expose:
+      - "5432"
+    networks:
+      - cassist-back
+
+  nginx:
+    image: nginx
+
+    env_file: ./frontend/.env
+
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    networks:
+      - cassist-front
+    depends_on:
+      - backend
+
+networks:
+  cassist-back:
+    driver: bridge
+  cassist-front:
+    driver: bridge
+
+
